@@ -2,6 +2,7 @@ package com.my_projects.mai_vocabulary.service;
 
 import com.my_projects.mai_vocabulary.dto.AIWordDefinitionResponse;
 import com.my_projects.mai_vocabulary.dto.VocabularyResponse;
+import com.my_projects.mai_vocabulary.entity.User;
 import com.my_projects.mai_vocabulary.entity.VocabularyEntry;
 import com.my_projects.mai_vocabulary.exception.VocabularyNotFoundException;
 import com.my_projects.mai_vocabulary.repository.VocabularyRepository;
@@ -15,52 +16,125 @@ public class VocabularyService {
 
     private final VocabularyRepository vocabularyRepository;
     private final AIDefinitionService aiDefinitionService;
+    private final UserService userService;
 
     public VocabularyService(VocabularyRepository vocabularyRepository,
-                             AIDefinitionService aiDefinitionService){
+                             AIDefinitionService aiDefinitionService,
+                             UserService userService){
         this.vocabularyRepository = vocabularyRepository;
         this.aiDefinitionService = aiDefinitionService;
+        this.userService = userService;
     }
 
-    public List<VocabularyEntry> getAllWords(){
+//    public List<VocabularyEntry> getAllWords(){
+//
+//        return vocabularyRepository.findAll();
+//    }
 
-        return vocabularyRepository.findAll();
+    public List<VocabularyEntry> getAllWords() {
+
+        User user = userService.getCurrentUser();
+
+        return vocabularyRepository.findAllByUserId(
+                user.getId()
+        );
     }
 
     public VocabularyEntry findByWord(String word){
 
         String normalizedWord = word.trim().toLowerCase(Locale.ROOT);
-        return vocabularyRepository.findByWord(normalizedWord)
+        User user = userService.getCurrentUser();
+        return vocabularyRepository
+                .findByUserIdAndWord(
+                        user.getId(),
+                        normalizedWord
+                )
                 .orElseThrow(() ->
                         new VocabularyNotFoundException(
-                                "Vocabulary entry not found for '" + normalizedWord + "'"
+                                "Vocabulary entry not found for '" +
+                                        normalizedWord +
+                                        "'"
                         )
                 );
         //return vocabularyRepository.findByWord(word);
     }
 
+//    public VocabularyEntry createVocabularyEntry(String word) {
+//        String normalizedWord = word.trim().toLowerCase(Locale.ROOT);
+//        VocabularyEntry exisingEntry = vocabularyRepository.findByWord(normalizedWord).orElse(null);
+//        if (exisingEntry != null) {
+//            return exisingEntry;
+//        }
+//
+//        AIWordDefinitionResponse aiResponse = aiDefinitionService.getDefinition(normalizedWord);
+//        if (!aiResponse.isRecognized()) {
+//            throw new VocabularyNotFoundException(
+//                    "The word '" + normalizedWord + "' was not recognized"
+//            );
+//        }
+//        VocabularyEntry entry = new VocabularyEntry();
+//        entry.setWord(normalizedWord);
+//        entry.setPronunciation(clean(aiResponse.getPronunciation()));
+//        entry.setPartOfSpeech(clean(aiResponse.getPartOfSpeech()));
+//        entry.setMeaning(clean(aiResponse.getMeaning()));
+//        entry.setExampleSentence(clean(aiResponse.getExampleSentence()));
+//        entry.setSynonyms(cleanList(aiResponse.getSynonyms()));
+//        entry.setAntonyms(cleanList(aiResponse.getAntonyms()));
+//        entry.setCreatedAt(LocalDateTime.now());
+//
+//        return vocabularyRepository.save(entry);
+//    }
+
     public VocabularyEntry createVocabularyEntry(String word) {
-        String normalizedWord = word.trim().toLowerCase(Locale.ROOT);
-        VocabularyEntry exisingEntry = vocabularyRepository.findByWord(normalizedWord).orElse(null);
-        if (exisingEntry != null) {
-            return exisingEntry;
+
+        String normalizedWord =
+                word.trim().toLowerCase(Locale.ROOT);
+
+        User user = userService.getCurrentUser();
+
+        Optional<VocabularyEntry> existingEntry =
+                vocabularyRepository.findByUserIdAndWord(
+                        user.getId(),
+                        normalizedWord
+                );
+
+        if (existingEntry.isPresent()) {
+            return existingEntry.get();
         }
 
-        AIWordDefinitionResponse aiResponse = aiDefinitionService.getDefinition(normalizedWord);
+        AIWordDefinitionResponse aiResponse =
+                aiDefinitionService.getDefinition(normalizedWord);
+
         if (!aiResponse.isRecognized()) {
             throw new VocabularyNotFoundException(
-                    "The word '" + normalizedWord + "' was not recognized"
+                    "The word '" +
+                            normalizedWord +
+                            "' was not recognized"
             );
         }
+
         VocabularyEntry entry = new VocabularyEntry();
+
+        entry.setUser(user);
         entry.setWord(normalizedWord);
-        entry.setPronunciation(clean(aiResponse.getPronunciation()));
-        entry.setPartOfSpeech(clean(aiResponse.getPartOfSpeech()));
-        entry.setMeaning(clean(aiResponse.getMeaning()));
-        entry.setExampleSentence(clean(aiResponse.getExampleSentence()));
-        entry.setSynonyms(cleanList(aiResponse.getSynonyms()));
-        entry.setAntonyms(cleanList(aiResponse.getAntonyms()));
-        entry.setCreatedAt(LocalDateTime.now());
+        entry.setPronunciation(
+                cleanValue(aiResponse.getPronunciation())
+        );
+        entry.setPartOfSpeech(
+                cleanValue(aiResponse.getPartOfSpeech())
+        );
+        entry.setMeaning(
+                cleanValue(aiResponse.getMeaning())
+        );
+        entry.setExampleSentence(
+                cleanValue(aiResponse.getExampleSentence())
+        );
+        entry.setSynonyms(
+                cleanList(aiResponse.getSynonyms())
+        );
+        entry.setAntonyms(
+                cleanList(aiResponse.getAntonyms())
+        );
 
         return vocabularyRepository.save(entry);
     }
@@ -103,7 +177,7 @@ public class VocabularyService {
                 .toList();
     }
 
-    private String clean(String value){
+    private String cleanValue(String value){
         if(value == null)
             return null;
 
