@@ -16,6 +16,7 @@ import java.util.Locale;
 
 @RestController
 @RequestMapping("/api/v1/vocabulary")
+@CrossOrigin("*")
 public class VocabularyController {
 
     private final VocabularyService vocabularyService;

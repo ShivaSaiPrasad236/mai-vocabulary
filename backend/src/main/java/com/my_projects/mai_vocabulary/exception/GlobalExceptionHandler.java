@@ -15,7 +15,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDto> handleException(Exception exception){
 
-        ErrorResponseDto errorResponse = new ErrorResponseDto("Something went wrong");
+        ErrorResponseDto errorResponse = new ErrorResponseDto("Something went wrong: " + exception.getMessage());
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(errorResponse);
