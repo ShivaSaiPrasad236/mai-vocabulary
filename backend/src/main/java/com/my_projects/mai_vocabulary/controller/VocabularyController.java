@@ -27,9 +27,9 @@ public class VocabularyController {
 
     @GetMapping("/{word}")
     public ResponseEntity<VocabularyResponse> getVocabularyEntry(@PathVariable String word){
-        
-        VocabularyEntry entry = vocabularyService.findByWord(word.trim().toLowerCase(Locale.ROOT));
-        return new ResponseEntity<>(vocabularyService.toResponse(entry), HttpStatus.OK);
+
+        VocabularyResponse entry = vocabularyService.findByWord(word.trim().toLowerCase(Locale.ROOT));
+        return new ResponseEntity<>(entry, HttpStatus.OK);
     }
 
     @GetMapping

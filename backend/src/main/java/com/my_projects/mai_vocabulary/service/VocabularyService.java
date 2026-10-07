@@ -17,13 +17,16 @@ public class VocabularyService {
     private final VocabularyRepository vocabularyRepository;
     private final AIDefinitionService aiDefinitionService;
     private final UserService userService;
+    private final VocabularyCacheService vocabularyCacheService;
 
     public VocabularyService(VocabularyRepository vocabularyRepository,
                              AIDefinitionService aiDefinitionService,
-                             UserService userService){
+                             UserService userService,
+                             VocabularyCacheService vocabularyCacheService){
         this.vocabularyRepository = vocabularyRepository;
         this.aiDefinitionService = aiDefinitionService;
         this.userService = userService;
+        this.vocabularyCacheService = vocabularyCacheService;
     }
 
 //    public List<VocabularyEntry> getAllWords(){
@@ -40,22 +43,24 @@ public class VocabularyService {
         );
     }
 
-    public VocabularyEntry findByWord(String word){
+    public VocabularyResponse findByWord(String word){
 
         String normalizedWord = word.trim().toLowerCase(Locale.ROOT);
         User user = userService.getCurrentUser();
-        return vocabularyRepository
-                .findByUserIdAndWord(
-                        user.getId(),
-                        normalizedWord
-                )
-                .orElseThrow(() ->
-                        new VocabularyNotFoundException(
-                                "Vocabulary entry not found for '" +
-                                        normalizedWord +
-                                        "'"
+
+        VocabularyResponse cachedEntry = vocabularyCacheService.get(user.getId(), normalizedWord);
+        if(cachedEntry != null)
+            return cachedEntry;
+
+        VocabularyEntry entry = vocabularyRepository.findByUserIdAndWord(user.getId(), normalizedWord)
+                .orElseThrow(() -> new VocabularyNotFoundException(
+                                "Vocabulary entry not found for '" + normalizedWord + "'"
                         )
                 );
+        VocabularyResponse  entryReponse = toResponse(entry);
+        vocabularyCacheService.put(user.getId(), normalizedWord, entryReponse);
+
+        return entryReponse;
         //return vocabularyRepository.findByWord(word);
     }
 
@@ -99,6 +104,7 @@ public class VocabularyService {
                 );
 
         if (existingEntry.isPresent()) {
+            vocabularyCacheService.put(user.getId(), normalizedWord, toResponse(existingEntry.get()));
             return existingEntry.get();
         }
 
@@ -135,7 +141,7 @@ public class VocabularyService {
         entry.setAntonyms(
                 cleanList(aiResponse.getAntonyms())
         );
-
+        vocabularyCacheService.put(user.getId(), normalizedWord, toResponse(entry));
         return vocabularyRepository.save(entry);
     }
 
@@ -166,7 +172,7 @@ public class VocabularyService {
     private List<String> cleanList(List<String> values){
 
         if(values == null)
-            return List.of();
+            return new ArrayList<>();
 
         return values
                 .stream()
