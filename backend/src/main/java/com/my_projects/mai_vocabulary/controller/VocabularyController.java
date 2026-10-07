@@ -1,6 +1,7 @@
 package com.my_projects.mai_vocabulary.controller;
 
 import com.my_projects.mai_vocabulary.dto.CreateVocabularyRequest;
+import com.my_projects.mai_vocabulary.dto.PageResponse;
 import com.my_projects.mai_vocabulary.dto.VocabularyResponse;
 import com.my_projects.mai_vocabulary.entity.VocabularyEntry;
 import com.my_projects.mai_vocabulary.service.VocabularyService;
@@ -33,10 +34,11 @@ public class VocabularyController {
     }
 
     @GetMapping
-    public ResponseEntity<List<VocabularyResponse>> getVocabularyEntries(){
-        List<VocabularyEntry> entries = vocabularyService.getAllWords();
+    public ResponseEntity<PageResponse<VocabularyResponse>> getVocabularyEntries(@RequestParam int page,
+                                                                                 @RequestParam int size){
+        PageResponse<VocabularyResponse> entries = vocabularyService.getAllWords(page, size);
         if(entries != null)
-            return new ResponseEntity<>(vocabularyService.toResponseList(entries), HttpStatus.OK);
+            return new ResponseEntity<>(entries, HttpStatus.OK);
         return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
     }
 

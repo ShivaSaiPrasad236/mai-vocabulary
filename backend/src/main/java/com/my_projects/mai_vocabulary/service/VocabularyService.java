@@ -1,11 +1,16 @@
 package com.my_projects.mai_vocabulary.service;
 
 import com.my_projects.mai_vocabulary.dto.AIWordDefinitionResponse;
+import com.my_projects.mai_vocabulary.dto.PageResponse;
 import com.my_projects.mai_vocabulary.dto.VocabularyResponse;
 import com.my_projects.mai_vocabulary.entity.User;
 import com.my_projects.mai_vocabulary.entity.VocabularyEntry;
 import com.my_projects.mai_vocabulary.exception.VocabularyNotFoundException;
 import com.my_projects.mai_vocabulary.repository.VocabularyRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -34,12 +39,50 @@ public class VocabularyService {
 //        return vocabularyRepository.findAll();
 //    }
 
-    public List<VocabularyEntry> getAllWords() {
+    public PageResponse<VocabularyResponse> getAllWords(int page, int size) {
+
+        if (page < 0) {
+            throw new IllegalArgumentException(
+                    "Page must be greater than or equal to 0"
+            );
+        }
+
+        if (size < 1 || size > 100) {
+            throw new IllegalArgumentException(
+                    "Size must be between 1 and 100"
+            );
+        }
 
         User user = userService.getCurrentUser();
 
-        return vocabularyRepository.findAllByUserId(
-                user.getId()
+        Pageable pageable =
+                PageRequest.of(
+                        page,
+                        size,
+                        Sort.by(
+                                Sort.Direction.ASC,
+                                "word"
+                        )
+                );
+
+        Page<VocabularyEntry> vocabularyPage = vocabularyRepository.findAllByUserId(
+                user.getId(), pageable
+        );
+
+        List<VocabularyResponse> responses =
+                vocabularyPage.getContent()
+                        .stream()
+                        .map(this::toResponse)
+                        .toList();
+
+        return new PageResponse<>(
+                responses,
+                vocabularyPage.getNumber(),
+                vocabularyPage.getSize(),
+                vocabularyPage.getTotalElements(),
+                vocabularyPage.getTotalPages(),
+                vocabularyPage.isFirst(),
+                vocabularyPage.isLast()
         );
     }
 

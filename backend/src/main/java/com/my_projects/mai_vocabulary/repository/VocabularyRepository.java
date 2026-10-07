@@ -1,6 +1,8 @@
 package com.my_projects.mai_vocabulary.repository;
 
 import com.my_projects.mai_vocabulary.entity.VocabularyEntry;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -17,7 +19,7 @@ public interface VocabularyRepository extends JpaRepository<VocabularyEntry, Lon
             String word
     );
 
-    List<VocabularyEntry> findAllByUserId(Long userId);
+    Page<VocabularyEntry> findAllByUserId(Long userId, Pageable pageable);
 }
 
 
