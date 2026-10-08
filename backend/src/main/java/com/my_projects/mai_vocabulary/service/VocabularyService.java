@@ -5,6 +5,7 @@ import com.my_projects.mai_vocabulary.dto.PageResponse;
 import com.my_projects.mai_vocabulary.dto.VocabularyResponse;
 import com.my_projects.mai_vocabulary.entity.User;
 import com.my_projects.mai_vocabulary.entity.VocabularyEntry;
+import com.my_projects.mai_vocabulary.event.VocabularyEventPublisher;
 import com.my_projects.mai_vocabulary.exception.VocabularyNotFoundException;
 import com.my_projects.mai_vocabulary.repository.VocabularyRepository;
 import org.springframework.data.domain.Page;
@@ -12,6 +13,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -23,15 +25,18 @@ public class VocabularyService {
     private final AIDefinitionService aiDefinitionService;
     private final UserService userService;
     private final VocabularyCacheService vocabularyCacheService;
+    private final VocabularyEventPublisher vocabularyEventPublisher;
 
     public VocabularyService(VocabularyRepository vocabularyRepository,
                              AIDefinitionService aiDefinitionService,
                              UserService userService,
-                             VocabularyCacheService vocabularyCacheService){
+                             VocabularyCacheService vocabularyCacheService,
+                             VocabularyEventPublisher vocabularyEventPublisher){
         this.vocabularyRepository = vocabularyRepository;
         this.aiDefinitionService = aiDefinitionService;
         this.userService = userService;
         this.vocabularyCacheService = vocabularyCacheService;
+        this.vocabularyEventPublisher = vocabularyEventPublisher;
     }
 
 //    public List<VocabularyEntry> getAllWords(){
@@ -56,13 +61,8 @@ public class VocabularyService {
         User user = userService.getCurrentUser();
 
         Pageable pageable =
-                PageRequest.of(
-                        page,
-                        size,
-                        Sort.by(
-                                Sort.Direction.ASC,
-                                "word"
-                        )
+                PageRequest.of(page, size,
+                        Sort.by(Sort.Direction.ASC, "word")
                 );
 
         Page<VocabularyEntry> vocabularyPage = vocabularyRepository.findAllByUserId(
@@ -101,7 +101,8 @@ public class VocabularyService {
                         )
                 );
         VocabularyResponse  entryReponse = toResponse(entry);
-        vocabularyCacheService.put(user.getId(), normalizedWord, entryReponse);
+        //vocabularyCacheService.put(user.getId(), normalizedWord, entryReponse);
+        vocabularyEventPublisher.publishVocabularyCreated(user.getId(), normalizedWord, entryReponse);
 
         return entryReponse;
         //return vocabularyRepository.findByWord(word);
@@ -133,6 +134,7 @@ public class VocabularyService {
 //        return vocabularyRepository.save(entry);
 //    }
 
+    @Transactional
     public VocabularyEntry createVocabularyEntry(String word) {
 
         String normalizedWord =
@@ -147,7 +149,7 @@ public class VocabularyService {
                 );
 
         if (existingEntry.isPresent()) {
-            vocabularyCacheService.put(user.getId(), normalizedWord, toResponse(existingEntry.get()));
+            vocabularyEventPublisher.publishVocabularyCreated(user.getId(), normalizedWord, toResponse(existingEntry.get()));
             return existingEntry.get();
         }
 
@@ -184,7 +186,11 @@ public class VocabularyService {
         entry.setAntonyms(
                 cleanList(aiResponse.getAntonyms())
         );
-        vocabularyCacheService.put(user.getId(), normalizedWord, toResponse(entry));
+        vocabularyEventPublisher.publishVocabularyCreated(
+                user.getId(),
+                normalizedWord,
+                toResponse(entry)
+        );
         return vocabularyRepository.save(entry);
     }
 
@@ -197,8 +203,12 @@ public class VocabularyService {
         response.setPartOfSpeech(entry.getPartOfSpeech());
         response.setMeaning(entry.getMeaning());
         response.setExampleSentence(entry.getExampleSentence());
-        response.setSynonyms(entry.getSynonyms());
-        response.setAntonyms(entry.getAntonyms());
+        response.setSynonyms(entry.getSynonyms() == null?
+                                new ArrayList<>() :
+                                new ArrayList<>(entry.getSynonyms()));
+        response.setAntonyms(entry.getAntonyms() == null?
+                                new ArrayList<>() :
+                                new ArrayList<>(entry.getAntonyms()));
 
         return response;
     }
