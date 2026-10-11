@@ -1,0 +1,45 @@
+services:
+
+  postgres:
+    image: postgres:16
+    container_name: mai-vocabulary-postgres
+    environment:
+      POSTGRES_DB: mai_vocabulary
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: mai-vocabulary-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  backend:
+    image: mai-vocabulary:latest
+    container_name: mai-vocabulary-backend
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mai_vocabulary
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+
+      JWT_SECRET: ${JWT_SECRET}
+
+      SPRING_AI_OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+
+volumes:
+  postgres_data:
+  redis_data:
